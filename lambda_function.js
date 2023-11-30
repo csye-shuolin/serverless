@@ -25,6 +25,11 @@ exports.handler = async (event) => {
         const mailgunApiKey = process.env.MAILGUN_API_KEY;
         const mailgunDomain = process.env.MAILGUN_DOMAIN;
         const emailDeliveryTableName = process.env.EMAIL_DELIVERY_TABLE_NAME;
+        const snsStatus = snsMessage.status;
+        console.log('sns', snsStatus)
+        console.log('type of sns', typeof snsStatus)
+        const logMessage = snsMessage.log_message;
+        const assignmentId = snsMessage.assignment_id;
 
         // Initialize Google Cloud Storage client
         const storage = new Storage({
@@ -38,7 +43,7 @@ exports.handler = async (event) => {
         // Function to send email
         const sendEmail = (subject, text) => {
             const data = {
-                from: 'Your Name <mailgun@demo.shuolin.me>',
+                from: 'Shuolin <mailgun@demo.shuolin.me>',
                 to: recipientEmail,
                 subject: subject,
                 text: text,
@@ -90,8 +95,24 @@ exports.handler = async (event) => {
         });
 
         // Send success email
-        await sendEmail('CSYE6225 Assignment Submission Successful', `Assignment ${fileName} uploaded to ${gcsBucketName}`);
-        console.log(`Uploaded ${fileName} to ${gcsBucketName}`);
+        // await sendEmail('CSYE6225 Assignment Submission ${snsStatus}', `Assignment ${fileName} uploaded to ${gcsBucketName}`);
+        // console.log(`Uploaded ${fileName} to ${gcsBucketName}`);
+
+        // await sendEmail(`CSYE6225 Assignment Submission ${snsStatus}`, `${logMessage}, the Submission URL is ${submissionUrl}, the GCS path is ${gcsBucketName}/${fileName}`);
+
+       //  Send success email
+        const successSubject = 'CSYE6225 Assignment Submission Successful'
+        const failSubject = 'CSYE6225 Assignment Submission Failed'
+        if (snsStatus == 'Successful') {
+            await sendEmail(successSubject, `You submit assignment successfully, submission for assignment ${assignmentId}, it is uploaded to GCS path ${gcsBucketName}/${fileName}`);
+            console.log(`Uploaded ${fileName} to ${gcsBucketName}`);
+        } else {
+            await sendEmail(failSubject, `You submit assignment failed, the failed reason is `);
+        }
+
+        if (!submissionUrl.endsWith('.zip')) {
+            await sendEmail(failSubject, `You submit assignment failed, the failed reason is invalid url`);
+        }
 
         // Record sucess email
         await recordEmailStatus(submissionId, recipientEmail, 'Success');
